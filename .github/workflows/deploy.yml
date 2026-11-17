@@ -1,0 +1,43 @@
+# 推送到 main 时自动部署到服务器 https://ssh.liyucheng.me
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ssh
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: server
+      url: https://ssh.liyucheng.me
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: for f in server/*.js; do node --check "$f"; done
+
+      - name: Assemble bundle
+        run: |
+          mkdir bundle
+          cp -a server public deploy package.json package-lock.json README.md bundle/
+          echo "$GITHUB_SHA" > bundle/.deploy-rev
+
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # 服务器端是受限钥匙，只能执行 deploy-ssh，stdin 就是部署包
+          tar -C bundle -czf - . | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes ubuntu@151.80.60.57

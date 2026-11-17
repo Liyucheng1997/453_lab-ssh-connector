@@ -1,0 +1,19 @@
+# 安装到 /etc/systemd/system/app-ssh.service
+[Unit]
+Description=app-ssh (云桥 SSH)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/apps/ssh
+EnvironmentFile=/opt/apps/ssh/.env
+Environment=NODE_ENV=production
+Environment=TRUST_PROXY=1
+Environment=YQ_DATA_DIR=/opt/apps/ssh/data
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+MemoryMax=500M
+
+[Install]
+WantedBy=multi-user.target
